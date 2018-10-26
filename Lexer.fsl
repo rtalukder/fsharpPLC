@@ -1,0 +1,73 @@
+{
+  (* 
+	Ciera Headley
+	Raquib Talukder
+  *)
+
+module Lexer
+
+open Microsoft.FSharp.Text.Lexing
+open Parser;
+
+let lexemeAsString lexbuf = 
+    LexBuffer<char>.LexemeString lexbuf
+
+(* Start of outermost comment currently being scanned *)
+let commentStart = ref Position.Empty
+ 
+let commentDepth = ref 0  (* Current comment nesting *)
+
+let keyword s =
+  match s with
+  | "bool"  -> BOOL
+  | "else" -> ELSE
+  | "end"    -> END
+  | "false"   -> FALSE
+  | "fn"    -> FN
+  | "fun"   -> FUN 
+  | "hd"    -> HD
+  | "if"   -> IF
+  | "in"    -> IN
+  | "int"   -> INT
+  | "ise"    -> ISE
+  | "list"   -> LIST
+  | "local"    -> LOCAL
+  | "not"   -> NOT
+  | "null"    ->  NULL
+  | "print"   -> PRINT
+  | "rec"    -> REC
+  | "then"   -> THEN
+  | "tl"	 -> TL
+  | "true"    -> TRUE
+  | "unit"   -> UNIT
+  | "var"    -> VAR
+  | _   ->  NAME s
+}
+
+rule Token = parse
+  | [' ' '\t' '\r'] { Token lexbuf }
+  | '\n'            { lexbuf.EndPos <- lexbuf.EndPos.NextLine; Token lexbuf }
+  | ['0'-'9']+      { CSNINT (System.Int32.Parse (lexemeAsString lexbuf)) } 
+  | ['a'-'z''A'-'Z''_']['a'-'z''A'-'Z''0'-'9''_']*
+                    { keyword (lexemeAsString lexbuf) }
+  | '='             { EQ }
+  | "<>"            { NE }
+  | '<'             { LT }
+  | "<="			{ LTE }
+  | "->"			{ ARROW }
+  | "=>"			{ ARROWT }
+  | '+'             { PLUS }                     
+  | '-'             { MINUS }                     
+  | '*'             { TIMES }                     
+  | '/'             { DIV }                     
+  | '('             { LPAR }
+  | ')'             { RPAR }
+  | ';'				{ SEMICOLON }
+  | ':'				{ COL }
+  | "::"			{ APPEND }
+  | "[]" 			{ ELISTC }
+  | eof             { EOF }
+  | _               { failwith "Lexer error: illegal symbol" }
+
+
+	

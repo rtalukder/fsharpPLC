@@ -1,0 +1,108 @@
+%{
+	 (* File Project/Parser.fsy 
+		Parser for HawkFun, a toy language that is purely functional, strict, statically-typed, lexically-scoped, and higher-order.
+		Ciera Headley
+		Raquib Talukder
+	  *)
+
+	 open Absyn;
+%}
+
+%token <int> CSNINT
+%token <string> NAME
+
+%token ELISTC
+%token VAR
+%token ELSE END FALSE IF IN LET THEN TRUE NULL REC BOOL INT UNIT 
+%token NOT HD TL ISE LIST PRINT 
+%token PLUS MINUS TIMES DIV APPEND SEMICOLON ARROW ARROWT COL
+%token EQ NE LT LTE
+%token FN FUN LOCAL
+%token LPAR RPAR
+%token EOF
+
+%right SEMICOLON ARROW					  /* lowest precedence  */
+%nonassoc IF
+%left ELSE
+%left EQ NE
+%nonassoc LT LTE 
+%right APPEND
+%left PLUS MINUS
+%left TIMES DIV
+%nonassoc NOT HD TL ISE LIST PRINT        /* highest precedence  */
+
+%start Main
+%type <Absyn.expr> Main expr atExpr const typedname  binding bindings htype
+%type <Absyn.expr> appexpr
+
+%%
+
+Main:
+	expr EOF									{ $1 }
+;
+
+expr:
+	| atExpr								{ $1						 }
+	| appexpr								{ $1						 }
+	| IF expr THEN expr ELSE expr			{ (If ($2, $4, $6), AnyT)	 }
+	| NOT expr								{ (Op1 ("not", $2), AnyT)	 }		   
+	| HD expr								{ (Op1 ("hd", $2), AnyT)	 }
+	| TL expr								{ (Op1 ("tl",  $2), AnyT)	 }
+	| ISE expr								{ (Op1 ("ise",  $2), AnyT)   }
+	| PRINT expr							{ (Op1 ("print", $2), AnyT)	 }
+	| expr PLUS  expr						{ (Op2 ("+",  $1, $3), AnyT) }
+	| expr MINUS expr						{ (Op2 ("-",  $1, $3), AnyT) }
+	| expr TIMES expr						{ (Op2 ("*",  $1, $3), AnyT) }
+	| expr DIV   expr						{ (Op2 ("/",  $1, $3), AnyT) } 
+	| expr EQ    expr						{ (Op2 ("=",  $1, $3), AnyT) }
+	| expr NE    expr						{ (Op2 ("<>", $1, $3), AnyT) }
+	| expr LT    expr						{ (Op2 ("<",  $1, $3), AnyT) }
+	| expr LTE   expr						{ (Op2 ("=", $1, $3), AnyT)	 }
+	| expr APPEND  expr						{ (Op2 ("::", $1, $3), AnyT) }
+	| expr SEMICOLON  expr					{ (Op2 (";", $1, $3), AnyT)	 }
+;
+
+atExpr:
+	| const									{ $1             }
+	| NAME									{ (Var ($1),  AnyT)              }
+	| LOCAL bindings IN expr END			{ List.foldBack ( fun b e -> (Let (b,e), AnyT) $2 $4}
+	| FN typedname ARROWT expr END			{ (Lam($2, $4), ArrowT(AnyT, AnyT))   } 
+	| LPAR expr RPAR						{ ($2)	 }
+	| LPAR ELISTC COL htype RPAR			{ (EListC, $4)		}
+;
+
+const:
+	| CSNINT						{ (Con ($1), IntT) }
+	| TRUE							{ (Con 1, BoolT) }
+	| FALSE							{ (Con 0, BoolT) }
+	| NULL							{ (Con 0, UnitT) }
+;
+
+typedname:
+	 LPAR atExpr COL htype RPAR			{ ($2, $4) }
+;
+
+bindings:
+	| binding							{ [$1] }
+	| binding bindings				{ ($1 :: $2) }
+;
+
+binding:
+	| VAR NAME EQ expr						 { V ($2, $4)           }
+	| FUN NAME typedname EQ expr				 { V ($2, (Lam($3, $5), ArrowT(AnyT, AnyT))) }
+	| FUN REC NAME typedname COL htype EQ expr { F ($3, $4, $6, $8 )  }
+;  
+
+appexpr:
+	| atExpr atExpr        { (Call ($1, $2), AnyT)              }
+	| appexpr atExpr      { (Call ($1, $2), AnyT)               }
+;
+
+htype:
+	| UNIT					{	UnitT			}
+	| BOOL					{	BoolT			}
+	| INT					{	IntT			}
+	| htype ARROW htype		{	ArrowT($1, $3)	}
+	| htype LIST			{	ListT($1)		}
+	| LPAR  htype RPAR		{ ($2)				}
+;
